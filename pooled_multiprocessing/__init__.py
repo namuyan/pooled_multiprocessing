@@ -14,14 +14,14 @@ lock = Lock()
 def _process(index, input_que, output_que):
     while True:
         try:
-            fnc, args_list, t = input_que.get()
+            fnc, args_list, kwargs, t = input_que.get()
             # print("S", index, round((time() - t) * 1000, 3), "mSec")
             result = list()
             for args in args_list:
                 if isinstance(args, tuple) or isinstance(args, list):
-                    result.append(fnc(*args))
+                    result.append(fnc(*args, **kwargs))
                 else:
-                    result.append(fnc(args))
+                    result.append(fnc(args, **kwargs))
             # print("E", index, round((time() - t) * 1000, 3), "mSec")
             output_que.put(result)
         except Exception as e:
@@ -47,7 +47,7 @@ def _create():
             print("Start pooled process {}".format(index))
 
 
-def mp_map(fnc, data_list):
+def mp_map(fnc, data_list, **kwargs):
     assert len(processes) > 0, "It's not main process?"
     data_list = list(data_list)
     chunk = len(data_list) // cpu_num
@@ -63,11 +63,9 @@ def mp_map(fnc, data_list):
                 raise RuntimeError('Pool process is dead. (task throw)')
             event.wait()
             event.clear()
-            input_que.put((fnc, args_list, time()))
+            input_que.put((fnc, args_list, kwargs, time()))
             work.append(process)
             task += 1
-            print("i", args_list)
-            break
     # wait results
     for process, input_que, output_que, event in processes:
         if process not in work:
@@ -84,20 +82,18 @@ def mp_map(fnc, data_list):
     return result
 
 
-def mp_map_async(fnc, data_list, callback=None):
+def mp_map_async(fnc, data_list, callback=None, **kwargs):
     def _return():
-        r = mp_map(fnc, data_list)
+        r = mp_map(fnc, data_list, **kwargs)
         if callback:
             callback(r)
-        else:
-            result.extend(r)
-            event.set()
+        result.extend(r)
+        event.set()
     assert len(processes) > 0, "It's not main process?"
     Thread(target=_return, name="Pooled", daemon=True).start()
-    if callback is None:
-        event = Event()
-        result = list()
-        return event, result
+    event = Event()
+    result = list()
+    return event, result
 
 
 def mp_close():
