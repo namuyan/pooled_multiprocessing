@@ -1,12 +1,15 @@
 from pooled_multiprocessing import *
+from testing import testing
 from time import time
 
 
-def testing(num):
-    r = 1
-    for i in range(1, num):
-        r += r * i
-    return r
+# Warning
+# Don't write a object with "if __name__ == '__main__':"
+# def testing(num):
+#    r = 1
+#    for i in range(1, num):
+#        r += r * i
+#    return r
 
 
 def main():
