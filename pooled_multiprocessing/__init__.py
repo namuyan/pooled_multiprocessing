@@ -1,4 +1,4 @@
-import multiprocessing as mp
+from multiprocessing import get_context, current_process
 from threading import Thread, Lock, Event
 from time import time
 from psutil import cpu_count
@@ -31,17 +31,17 @@ def _process(index, input_que, output_que):
 
 
 def _create():
-    if mp.current_process().name != "MainProcess":
+    if current_process().name != "MainProcess":
         return
     with lock:
         # create
-        mp.set_start_method('spawn')
+        cxt = get_context('spawn')
         for index in range(1, cpu_num + 1):
             event = Event()
             event.set()
-            input_que = mp.Queue()
-            output_que = mp.Queue()
-            p = mp.Process(target=_process, name="Pool{}".format(index), args=(index, input_que, output_que))
+            input_que = cxt.Queue()
+            output_que = cxt.Queue()
+            p = cxt.Process(target=_process, name="Pool{}".format(index), args=(index, input_que, output_que))
             p.daemon = True
             p.start()
             processes.append((p, input_que, output_que, event))
