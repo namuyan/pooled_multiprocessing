@@ -35,6 +35,7 @@ def _create():
         return
     with lock:
         # create
+        mp.set_start_method('spawn')
         for index in range(1, cpu_num + 1):
             event = Event()
             event.set()
