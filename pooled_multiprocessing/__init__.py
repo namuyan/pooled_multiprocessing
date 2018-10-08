@@ -43,13 +43,14 @@ def _process(index, input_que, output_que):
             output_que.put([error])
 
 
-def _create():
+def add_pool_process(add_num):
     if current_process().name != "MainProcess":
         return
     with lock:
         # create
+        already_created = len(processes)
         cxt = get_context('spawn')
-        for index in range(1, cpu_num + 1):
+        for index in range(1 + already_created, add_num + already_created + 1):
             event = Event()
             event.set()
             input_que = cxt.Queue()
@@ -63,19 +64,22 @@ def _create():
 
 def mp_map(fnc, data_list, **kwargs):
     assert len(processes) > 0, "It's not main process?"
-    data_list = list(data_list)
-    chunk = len(data_list) // cpu_num
-    if len(data_list) % cpu_num != 0:
-        chunk += 1
+    chunk_list = [list() for i in range(cpu_num)]
+    for index, data in enumerate(data_list):
+        chunk_list[index % cpu_num].append(data)
     result = list()
     work = list()
     task = 0
     # throw a tasks
     with lock:
-        for (process, input_que, output_que, event), args_list in zip(processes, chunked(data_list, chunk)):
+        for (process, input_que, output_que, event), args_list in zip(processes, chunk_list):
             if not process.is_alive():
                 raise RuntimeError('Pool process is dead. (task throw)')
+            if len(args_list) == 0:
+                continue
+            s = time()
             event.wait()
+            print(round((time()-s)*1000, 3), "Sec wait")
             event.clear()
             input_que.put((fnc, args_list, kwargs, time()))
             work.append(process)
@@ -96,18 +100,38 @@ def mp_map(fnc, data_list, **kwargs):
     return result
 
 
-def mp_map_async(fnc, data_list, callback=None, **kwargs):
-    def _return():
-        r = mp_map(fnc, data_list, **kwargs)
+def mp_map_async(fnc, data_list, callback=None, chunk=50, **kwargs):
+    def _return(data):
+        r = mp_map(fnc, data, **kwargs)
         if callback:
             callback(r)
-        result.extend(r)
-        event.set()
+        waiter.callback(r)
+
+    class Waiter(Event):
+        def __init__(self, task):
+            super(Waiter, self).__init__()
+            self.result = list()
+            self.task = task
+            self.lock = Lock()
+
+        def __repr__(self):
+            return "<Event-{} finish={} task={} result={}>"\
+                .format(id(self.result), self.is_set(), self.task, len(self.result))
+
+        def callback(self, result):
+            with self.lock:
+                self.task -= 1
+                self.result.extend(result)
+                if self.task == 0:
+                    self.set()
+
     assert len(processes) > 0, "It's not main process?"
-    Thread(target=_return, name="Pooled", daemon=True).start()
-    event = Event()
-    result = list()
-    return event, result
+    task_num = 0
+    for d in chunked(data_list, chunk):
+        task_num += 1
+        Thread(target=_return, name="Pooled", args=(d,), daemon=True).start()
+    waiter = Waiter(task_num)
+    return waiter, waiter.result
 
 
 def mp_close():
@@ -120,9 +144,9 @@ def mp_close():
 
 
 # pre-create
-_create()
+add_pool_process(cpu_num)
 
 
 __all__ = [
-    "mp_map", "mp_map_async", "mp_close"
+    "add_pool_process", "mp_map", "mp_map_async", "mp_close"
 ]

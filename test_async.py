@@ -11,28 +11,31 @@ from time import time
 #        r += r * i
 #    return r
 
+outputs = 0
+inputs = 0
+
 
 def _callback(data_list):
+    global outputs
+    outputs += len(data_list)
     print("Get!", data_list)
 
 
 def main():
     t = list()
     s = time()
-    mp_map_async(testing, range(11), callback=_callback)
-    t.append(time())
-    mp_map_async(testing, range(11, 20), callback=_callback)
-    t.append(time())
-    mp_map_async(testing, range(20, 30), callback=_callback)
-    t.append(time())
-    event, result = mp_map_async(testing, range(30, 40))
-    t.append(time())
+    global inputs
+    for start, stop in ((0, 1), (1, 11), (11, 20), (20, 30), (30, 45), (45, 60), (60, 500)):
+        event, *dummy = mp_map_async(testing, range(start, stop), callback=_callback)
+        t.append(time())
+        inputs += stop - start
     event.wait()
-    print(result)
+    print(event)
     t.append(time())
     for i, t in enumerate(t):
         print(i, round((t-s)*1000, 3), "mSec")
     mp_close()
+    print("Status ok? =", inputs == outputs)
 
 
 if __name__ == '__main__':
