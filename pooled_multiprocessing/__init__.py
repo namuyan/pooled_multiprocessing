@@ -4,9 +4,20 @@ from time import time
 from psutil import cpu_count
 from more_itertools import chunked
 import logging
+import os
 
+cpu_un_logical = cpu_count(False)
+cpu_logical = cpu_count(True)
 
-cpu_num = cpu_count(False) or cpu_count(True)
+if cpu_logical and cpu_un_logical:
+    cpu_num = min(cpu_logical, cpu_un_logical)
+elif cpu_un_logical and cpu_logical is None:
+    cpu_num = cpu_un_logical
+elif cpu_logical and cpu_un_logical is None:
+    cpu_num = cpu_logical
+else:
+    cpu_num = os.cpu_count()
+
 processes = list()
 lock = Lock()
 
@@ -17,6 +28,7 @@ def _process(index, input_que, output_que):
             fnc, args_list, kwargs, t = input_que.get()
             # print("S", index, round((time() - t) * 1000, 3), "mSec")
             result = list()
+            args = None
             for args in args_list:
                 if isinstance(args, tuple) or isinstance(args, list):
                     result.append(fnc(*args, **kwargs))
@@ -24,6 +36,7 @@ def _process(index, input_que, output_que):
                     result.append(fnc(args, **kwargs))
             # print("E", index, round((time() - t) * 1000, 3), "mSec")
             output_que.put(result)
+            del fnc, args_list, result, kwargs, args
         except Exception as e:
             error = "Error on pool {}: {}".format(index, e)
             logging.error(error)
@@ -98,11 +111,12 @@ def mp_map_async(fnc, data_list, callback=None, **kwargs):
 
 
 def mp_close():
-    for process, input_que, output_que, event in processes:
-        process.terminate()
-        input_que.close()
-        output_que.close()
-    processes.clear()
+    with lock:
+        for process, input_que, output_que, event in processes:
+            process.terminate()
+            input_que.close()
+            output_que.close()
+        processes.clear()
 
 
 # pre-create
