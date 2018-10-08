@@ -79,7 +79,7 @@ def mp_map(fnc, data_list, **kwargs):
                 continue
             s = time()
             event.wait()
-            print(round((time()-s)*1000, 3), "Sec wait")
+            # print(round((time()-s)*1000, 3), "mSec wait")
             event.clear()
             input_que.put((fnc, args_list, kwargs, time()))
             work.append(process)
