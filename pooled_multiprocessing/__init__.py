@@ -5,6 +5,8 @@ from psutil import cpu_count
 from more_itertools import chunked
 import logging
 import os
+from .waiter import Waiter
+
 
 cpu_un_logical = cpu_count(False)
 cpu_logical = cpu_count(True)
@@ -105,25 +107,7 @@ def mp_map_async(fnc, data_list, callback=None, chunk=50, **kwargs):
         r = mp_map(fnc, data, **kwargs)
         if callback:
             callback(r)
-        waiter.callback(r)
-
-    class Waiter(Event):
-        def __init__(self, task):
-            super(Waiter, self).__init__()
-            self.result = list()
-            self.task = task
-            self.lock = Lock()
-
-        def __repr__(self):
-            return "<Event-{} finish={} task={} result={}>"\
-                .format(id(self.result), self.is_set(), self.task, len(self.result))
-
-        def callback(self, result):
-            with self.lock:
-                self.task -= 1
-                self.result.extend(result)
-                if self.task == 0:
-                    self.set()
+        waiter.put_data(r)
 
     assert len(processes) > 0, "It's not main process?"
     task_num = 0
@@ -148,5 +132,8 @@ add_pool_process(cpu_num)
 
 
 __all__ = [
-    "add_pool_process", "mp_map", "mp_map_async", "mp_close"
+    "add_pool_process",
+    "mp_map",
+    "mp_map_async",
+    "mp_close"
 ]
