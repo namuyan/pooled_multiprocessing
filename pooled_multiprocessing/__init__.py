@@ -1,5 +1,5 @@
 from multiprocessing import get_context, current_process
-from threading import Thread, Lock, Event
+from threading import Thread, RLock, Event
 from time import time
 from psutil import cpu_count
 from more_itertools import chunked
@@ -21,7 +21,8 @@ else:
     cpu_num = os.cpu_count()
 
 processes = list()
-lock = Lock()
+process_index = 0
+lock = RLock()
 
 
 def _process(index, input_que, output_que):
@@ -48,11 +49,13 @@ def _process(index, input_que, output_que):
 def add_pool_process(add_num):
     if current_process().name != "MainProcess":
         return
+    if add_num == 0:
+        return
+    global process_index
     with lock:
         # create
-        already_created = len(processes)
         cxt = get_context('spawn')
-        for index in range(1 + already_created, add_num + already_created + 1):
+        for index in range(1 + process_index, add_num + process_index + 1):
             event = Event()
             event.set()
             input_que = cxt.Queue()
@@ -62,6 +65,7 @@ def add_pool_process(add_num):
             p.start()
             processes.append((p, input_que, output_que, event))
             print("Start pooled process {}".format(index))
+            process_index += 1
 
 
 def mp_map(fnc, data_list, **kwargs):
@@ -74,6 +78,13 @@ def mp_map(fnc, data_list, **kwargs):
     task = 0
     # throw a tasks
     with lock:
+        failed_num = 0
+        for p in processes.copy():
+            process, input_que, output_que, event = p
+            if not process.is_alive():
+                processes.remove(p)
+                failed_num += 1
+        add_pool_process(failed_num)
         for (process, input_que, output_que, event), args_list in zip(processes, chunk_list):
             if not process.is_alive():
                 raise RuntimeError('Pool process is dead. (task throw)')
