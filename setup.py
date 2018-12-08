@@ -12,7 +12,7 @@ except Exception:
 
 setup(
     name="pooled_multiprocessing",
-    version="0.0.7",
+    version="0.0.8",
     url='https://github.com/namuyan/pooled_multiprocessing',
     author='namuyan',
     description='Simple pooled multiprocessing',

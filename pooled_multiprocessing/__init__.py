@@ -114,19 +114,17 @@ def mp_map(fnc, data_list, **kwargs):
 
 
 def mp_map_async(fnc, data_list, callback=None, chunk=50, **kwargs):
-    def _return(data):
+    def _return(data, w):
         r = mp_map(fnc, data, **kwargs)
         if callback:
             callback(r)
-        waiter.put_data(r)
-
+        w.put_data(r)
     assert len(processes) > 0, "It's not main process?"
-    task_num = 0
-    for d in chunked(data_list, chunk):
-        task_num += 1
-        Thread(target=_return, name="Pooled", args=(d,), daemon=True).start()
-    waiter = Waiter(task_num)
-    return waiter, waiter.result
+    chunk_list = list(chunked(data_list, chunk))
+    _w = Waiter(task=len(chunk_list))
+    for d in chunk_list:
+        Thread(target=_return, name="Pooled", args=(d, _w), daemon=True).start()
+    return _w, _w.result
 
 
 def mp_close():
