@@ -23,6 +23,8 @@ def _callback(data_list):
 
 def main():
     t = list()
+    t.append(time())
+    add_pool_process(cpu_num)
     s = time()
     global inputs
     for start, stop in ((0, 1), (1, 11), (11, 20), (20, 30), (30, 45), (45, 60), (60, 500)):

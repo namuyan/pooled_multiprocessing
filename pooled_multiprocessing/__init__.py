@@ -30,16 +30,13 @@ def _process(index, input_que, output_que):
         try:
             fnc, args_list, kwargs, t = input_que.get()
             # print("S", index, round((time() - t) * 1000, 3), "mSec")
-            result = list()
-            args = None
-            for args in args_list:
-                if isinstance(args, tuple) or isinstance(args, list):
-                    result.append(fnc(*args, **kwargs))
-                else:
-                    result.append(fnc(args, **kwargs))
+            if isinstance(args_list[0], tuple) or isinstance(args_list[0], list):
+                result = [fnc(*args, **kwargs) for args in args_list]
+            else:
+                result = [fnc(args, **kwargs) for args in args_list]
             # print("E", index, round((time() - t) * 1000, 3), "mSec")
             output_que.put(result)
-            del fnc, args_list, result, kwargs, args
+            del fnc, args_list, kwargs, result
         except Exception as e:
             error = "Error on pool {}: {}".format(index, e)
             logging.error(error)
@@ -64,7 +61,7 @@ def add_pool_process(add_num):
             p.daemon = True
             p.start()
             processes.append((p, input_que, output_que, event))
-            print("Start pooled process {}".format(index))
+            logging.info("Start pooled process {}".format(index))
             process_index += 1
 
 
@@ -137,10 +134,11 @@ def mp_close():
 
 
 # pre-create
-add_pool_process(cpu_num)
+# add_pool_process(cpu_num)
 
 
 __all__ = [
+    "cpu_num",
     "add_pool_process",
     "mp_map",
     "mp_map_async",

@@ -15,6 +15,7 @@ from time import time
 def main():
     t = list()
     t.append(time())
+    add_pool_process(cpu_num)
     s = time()
     result = mp_map(fnc=testing, data_list=list(range(10)))
     t.append(time())
